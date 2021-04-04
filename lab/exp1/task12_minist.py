@@ -5,14 +5,14 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 import matplotlib.pyplot as plt
 
-BATCH_SIZE = 512  # 大概需要2G的显存
-EPOCHS = 3  # 总共训练批次
+BATCH_SIZE = 512  # 设置批次大小
+EPOCHS = 20  # 总共训练批次
+# 如果有GPU就使用GPU
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 train_losses = []  # 保存loss便于画图
 test_losses = []
-# train_counter = []
 
-# 下载训练集
+# 下载和加载训练集
 train_loader = torch.utils.data.DataLoader(
     datasets.MNIST('./data', train=True, download=False,
                    transform=transforms.Compose([
@@ -35,7 +35,7 @@ test_loader = torch.utils.data.DataLoader(
 class ConvNet(nn.Module):
     def __init__(self):
         super().__init__()
-        # 1*1*28*28
+        # 1*1*28*28，定义两个卷积层和两个全连接层
         self.conv1 = nn.Conv2d(1, 10, 5)
         self.conv2 = nn.Conv2d(10, 20, 3)
         self.fc1 = nn.Linear(20 * 10 * 10, 500)
@@ -43,16 +43,16 @@ class ConvNet(nn.Module):
 
     def forward(self, x):
         in_size = x.size(0)
-        out = self.conv1(x)  # 1* 10 * 24 *24
+        out = self.conv1(x)
+        out = F.relu(out)  # 加入relu函数
+        out = F.max_pool2d(out, 2, 2)  # 使用最大池化
+        out = self.conv2(out)
         out = F.relu(out)
-        out = F.max_pool2d(out, 2, 2)  # 1* 10 * 12 * 12
-        out = self.conv2(out)  # 1* 20 * 10 * 10
+        out = out.view(in_size, -1)  # 1 * 2000，改变尺寸
+        out = self.fc1(out)
         out = F.relu(out)
-        out = out.view(in_size, -1)  # 1 * 2000
-        out = self.fc1(out)  # 1 * 500
-        out = F.relu(out)
-        out = self.fc2(out)  # 1 * 10
-        out = F.log_softmax(out, dim=1)
+        out = self.fc2(out)
+        out = F.log_softmax(out, dim=1)  # 加入softmax转化为概率输出
         return out
 
 
@@ -61,26 +61,21 @@ model = ConvNet().to(DEVICE)
 optimizer = optim.Adam(model.parameters())
 
 
-# test_counter = [i * len(train_loader.dataset) for i in range(EPOCHS + 1)]
-
-
 # 定义训练函数
 def train(model, device, train_loader, optimizer, epoch):
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
-        optimizer.zero_grad()
+        optimizer.zero_grad()  # 梯度清零
         output = model(data)
-        loss = F.nll_loss(output, target)
-        loss.backward()
-        optimizer.step()
+        loss = F.nll_loss(output, target)  # 计算loss
+        loss.backward()  # 计算梯度
+        optimizer.step()  # 修改权值
         if (batch_idx + 1) % 30 == 0:
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
                        100. * batch_idx / len(train_loader), loss.item()))
-            train_losses.append(loss.item())
-            # train_counter.append(
-            #     (batch_idx * 64) + ((EPOCHS - 1) * len(train_loader.dataset)))
+            train_losses.append(loss.item())  # 记录训练的loss值
 
 
 # 定义测试函数
@@ -105,6 +100,7 @@ def test(model, device, test_loader):
     ))
 
 
+# 画出loss变化曲线
 def draw_loss():
     train_counter = [i * 12000 for i in range(1, len(train_losses) + 1)]
     test_counter = [i * 36000 for i in range(0, len(test_losses))]
@@ -126,4 +122,3 @@ draw_loss()
 print(test_losses)
 print(list(test_losses))
 print(train_losses)
-

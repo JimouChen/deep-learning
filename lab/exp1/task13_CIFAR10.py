@@ -1,5 +1,5 @@
 from multiprocessing.dummy import freeze_support
-
+import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -11,6 +11,7 @@ import torch.nn.functional as F
 
 MINI_BATCH = 8  # 数据集的图片数量很大，无法一次性加载所有数据，所以一次加载一个mini-batch的图片
 DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')  # GPU可用则使用GPU
+train_losses = []  # 记录训练时的loss变化
 
 # ToTensor(): 将ndarrray格式的图像转换为Tensor张量
 # Normalize(mean, std) mean：每个通道颜色平均值，这里的平均值为0.5，私人数据集自己计算；std：每个通道颜色标准偏差，(原始数据 - mean) / std 得到归一化后的数据
@@ -21,9 +22,6 @@ trainloader = torch.utils.data.DataLoader(trainset, batch_size=MINI_BATCH, shuff
 # 测试数据加载
 testset = torchvision.datasets.CIFAR10(root='./data', train=False, download=False, transform=transform)
 testloader = torch.utils.data.DataLoader(testset, batch_size=MINI_BATCH, shuffle=False, num_workers=4)
-
-
-# net.py
 
 
 class Net(nn.Module):
@@ -41,12 +39,12 @@ class Net(nn.Module):
 
     # 定义数据流向
     def forward(self, x):
-        x = F.relu(self.conv1(x))  # F.relu 是一个常用的激活函数
+        x = F.relu(self.conv1(x))  # 加入relu激活函数
         x = self.pool(x)
         x = F.relu(self.conv2(x))
         x = self.pool(x)
-
-        x = x.view(-1, 16 * 5 * 5)  # 变换数据维度为 1*(16*5*5)，-1表示根据后面推测
+        # 变换数据维度为 1*(16*5*5)，-1表示根据后面推测
+        x = x.view(-1, 16 * 5 * 5)
 
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
@@ -85,6 +83,7 @@ def train(model, criterion, optimizer, epochs):
             # 每1000批图片打印训练数据
             if (i != 0) and (i % 1000 == 0):
                 print('step: {:d},  loss: {:.3f}'.format(i, running_loss / 1000))
+                train_losses.append('{:.3f}'.format(running_loss / 1000))  # 记录loss
                 running_loss = 0.0
 
         # 每个epoch以测试数据的整体准确率为标准测试一下模型
@@ -115,16 +114,29 @@ def train(model, criterion, optimizer, epochs):
     return model
 
 
+# 画出训练时的loss变化曲线
+def draw_loss():
+    train_counter = [i * 1000 for i in range(1, len(train_losses) + 1)]
+    plt.figure()
+    plt.plot(train_counter, train_losses, color='blue')
+    plt.legend(['Train Loss'], loc='upper right')
+    plt.xlabel('times of training')
+    plt.ylabel('negative log likelihood loss')
+    plt.show()
+
+
 net = Net()
 net.to(DEVICE)
 
-# 使用分类交叉熵 Cross-Entropy 作损失函数，动量SGD做优化器
+# 使用分类交叉熵损失函数
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+# 优化器使用随机梯度下降SGD，并设置学习率和角动量
+optimizer = optim.SGD(net.parameters(), lr=0.0018, momentum=0.9)
 
-# 训练10个epoch
+# 训练20个epoch
 if __name__ == '__main__':
     freeze_support()
-    net = train(net, criterion, optimizer, 10)
+    net = train(net, criterion, optimizer, 20)
+    draw_loss()
 # 保存模型参数
 # torch.save(net.state_dict(), 'net_dict.pt')
