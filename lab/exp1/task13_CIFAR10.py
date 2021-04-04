@@ -13,6 +13,7 @@ MINI_BATCH = 8  # 数据集的图片数量很大，无法一次性加载所有�
 DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')  # GPU可用则使用GPU
 train_losses = []  # 记录训练时的loss变化
 
+
 # ToTensor(): 将ndarrray格式的图像转换为Tensor张量
 # Normalize(mean, std) mean：每个通道颜色平均值，这里的平均值为0.5，私人数据集自己计算；std：每个通道颜色标准偏差，(原始数据 - mean) / std 得到归一化后的数据
 transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
