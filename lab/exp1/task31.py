@@ -37,9 +37,7 @@ class ConvNet(nn.Module):
         super().__init__()
         # 1*1*28*28，定义两个卷积层和两个全连接层
         self.conv1 = nn.Conv2d(1, 10, 5)
-        nn.Dropout(0.5)  # 使用dropout
         self.conv2 = nn.Conv2d(10, 20, 3)
-        nn.Dropout(0.5)
         self.fc1 = nn.Linear(20 * 10 * 10, 500)
         self.fc2 = nn.Linear(500, 10)
 
@@ -60,8 +58,10 @@ class ConvNet(nn.Module):
 
 # 生成模型和优化器
 model = ConvNet().to(DEVICE)
-# weight_decay权值衰减用的是L2正则化方式
-optimizer = optim.SGD(model.parameters(), lr=0.01, weight_decay=0, momentum=0.9)
+optimizer = optim.SGD(model.parameters(), lr=0.01)
+
+
+# optimizer = optim.RMSprop(model.parameters(), lr=0.01)
 
 
 # 定义训练函数
